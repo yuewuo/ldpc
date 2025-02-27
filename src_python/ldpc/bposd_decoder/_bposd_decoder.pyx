@@ -135,6 +135,9 @@ cdef class BpOsdDecoder(BpDecoderBase):
 
         return out
 
+    @property
+    def log_prob_ratios(self) -> np.ndarray:
+        return self.bpd.log_prob_ratios
 
 
     @property

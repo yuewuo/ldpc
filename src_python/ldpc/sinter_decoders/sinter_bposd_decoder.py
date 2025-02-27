@@ -4,6 +4,11 @@ import pathlib
 from ldpc.bposd_decoder import BpOsdDecoder
 import sinter
 from ldpc.ckt_noise.dem_matrices import detector_error_model_to_check_matrices
+from typing import Optional
+from io import BufferedWriter
+from contextlib import nullcontext
+import time
+import struct
 
 
 class SinterBpOsdDecoder(sinter.Decoder):
@@ -44,6 +49,7 @@ class SinterBpOsdDecoder(sinter.Decoder):
         serial_schedule_order=None,
         osd_method="osd0",
         osd_order=0,
+        trace_filename: Optional[str] = None,
     ):
         self.max_iter = max_iter
         self.bp_method = bp_method
@@ -53,6 +59,7 @@ class SinterBpOsdDecoder(sinter.Decoder):
         self.serial_schedule_order = serial_schedule_order
         self.osd_method = osd_method
         self.osd_order = osd_order
+        self.trace_filename = trace_filename
 
     def decode_via_files(
         self,
@@ -110,13 +117,25 @@ class SinterBpOsdDecoder(sinter.Decoder):
             osd_method=self.osd_method,
             osd_order=self.osd_order,
         )
+        prior_log_prob_ratios = np.log(
+            (1 - self.matrices.priors) / self.matrices.priors
+        )
 
         shots = stim.read_shot_data_file(
             path=dets_b8_in_path, format="b8", num_detectors=num_dets
         )
         predictions = np.zeros((num_shots, num_obs), dtype=bool)
-        for i in range(num_shots):
-            predictions[i, :] = self.decode(shots[i, :])
+        with (
+            open(self.trace_filename, "wb")
+            if self.trace_filename is not None
+            else nullcontext()
+        ) as trace_f:
+            for i in range(num_shots):
+                predictions[i, :] = self.decode(
+                    shots[i, :],
+                    trace_f=trace_f,
+                    prior_log_prob_ratios=prior_log_prob_ratios,
+                )
 
         stim.write_shot_data_file(
             data=predictions,
@@ -125,6 +144,31 @@ class SinterBpOsdDecoder(sinter.Decoder):
             num_observables=num_obs,
         )
 
-    def decode(self, syndrome: np.ndarray) -> np.ndarray:
+    def decode(
+        self,
+        syndrome: np.ndarray,
+        *,
+        trace_f: Optional[BufferedWriter] = None,
+        prior_log_prob_ratios: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        start = time.perf_counter()
         corr = self.bposd.decode(syndrome)
+        if trace_f is not None:
+            posterior_weight = self.bposd.log_prob_ratios @ corr
+            prior_weight = prior_log_prob_ratios @ corr
+            record_trace(
+                trace_f, time.perf_counter() - start, posterior_weight, prior_weight
+            )
         return (self.matrices.observables_matrix @ corr) % 2
+
+
+def record_trace(
+    trace_f: BufferedWriter,
+    elapsed: float,
+    posterior_weight: float,
+    prior_weight: float,
+):
+    trace_f.write(struct.pack("f", elapsed))
+    trace_f.write(struct.pack("f", posterior_weight))
+    trace_f.write(struct.pack("f", prior_weight))
+    trace_f.write(struct.pack("f", 0))  # reserved

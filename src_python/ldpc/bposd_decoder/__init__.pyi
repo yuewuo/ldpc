@@ -86,6 +86,8 @@ class BpOsdDecoder(BpDecoderBase):
 
         """
 
+    @property
+    def log_prob_ratios(self) -> np.ndarray: ...
 
 
     @property
