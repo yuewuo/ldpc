@@ -40,6 +40,9 @@ cdef class BpOsdDecoder(BpDecoderBase):
         The OSD method used.  Must be one of {'OSD_0', 'OSD_E', 'OSD_CS'}.
     osd_order : int, optional
         The OSD order, by default 0.
+    bp_converge : bool
+        By default BP may converge and directly return the result; sometimes it's better if BP cannot directly 
+        return and always use the post-processing to decode
 
     Notes
     -----
@@ -52,7 +55,7 @@ cdef class BpOsdDecoder(BpDecoderBase):
                  error_channel: Optional[List[float]] = None, max_iter: Optional[int] = 0, bp_method: Optional[str] = 'minimum_sum',
                  ms_scaling_factor: Optional[Union[float,int]] = 1.0, schedule: Optional[str] = 'parallel', omp_thread_count: Optional[int] = 1,
                  random_schedule_seed: Optional[int] = 0, serial_schedule_order: Optional[List[int]] = None, osd_method: Union[str, int, float] = 0,
-                 osd_order: int = 0, input_vector_type: str = "syndrome", **kwargs):
+                 osd_order: int = 0, input_vector_type: str = "syndrome", bp_converge: bool = True, **kwargs):
         
         for key in kwargs.keys():
             if key not in ["channel_probs"]:
@@ -66,6 +69,7 @@ cdef class BpOsdDecoder(BpDecoderBase):
         self.osd_order=osd_order
 
         self.input_vector_type = "syndrome"
+        self.bp_converge = bp_converge
 
         self.osdD.osd_setup()
 
@@ -125,7 +129,7 @@ cdef class BpOsdDecoder(BpDecoderBase):
         self.bpd.decode(self._syndrome)
         out = np.zeros(self.n, dtype=syndrome.dtype)
 
-        if self.bpd.converge:
+        if self.bpd.converge and self.bp_converge:
             for i in range(self.n):
                 out[i] = self.bpd.decoding[i]
         else:
@@ -273,7 +277,7 @@ cdef class BpOsdDecoder(BpDecoderBase):
         """
         out = np.zeros(self.n).astype(int)
 
-        if self.bpd.converge:
+        if self.bpd.converge and self.bp_converge:
             for i in range(self.n):
                 out[i] = self.bpd.decoding[i]
             return out
@@ -292,7 +296,7 @@ cdef class BpOsdDecoder(BpDecoderBase):
         """
         out = np.zeros(self.n).astype(int)
 
-        if self.bpd.converge:
+        if self.bpd.converge and self.bp_converge:
             for i in range(self.n):
                 out[i] = self.bpd.decoding[i]
             return out

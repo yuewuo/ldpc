@@ -27,6 +27,7 @@ cdef extern from "osd.hpp" namespace "ldpc::osd" nogil:
 
 cdef class BpOsdDecoder(BpDecoderBase):
     cdef OsdDecoderCpp* osdD
+    cdef bool bp_converge
 
 cdef class SoftInfoBpOsdDecoder(BpDecoderBase):
     cdef OsdDecoderCpp* osdD

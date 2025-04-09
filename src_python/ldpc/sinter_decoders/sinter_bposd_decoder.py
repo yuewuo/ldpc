@@ -33,6 +33,9 @@ class SinterBpOsdDecoder(sinter.Decoder):
         The OSD method used. Must be one of {'OSD_0', 'OSD_E', 'OSD_CS'}, by default 'OSD_0'.
     osd_order : int, optional
         The OSD order, by default 0.
+    bp_converge : bool
+        By default BP may converge and directly return the result; sometimes it's better if BP cannot directly
+        return and always use the post-processing to decode
 
     Notes
     -----
@@ -50,6 +53,7 @@ class SinterBpOsdDecoder(sinter.Decoder):
         osd_method="osd0",
         osd_order=0,
         trace_filename: Optional[str] = None,
+        bp_converge: bool = True,
     ):
         self.max_iter = max_iter
         self.bp_method = bp_method
@@ -60,6 +64,7 @@ class SinterBpOsdDecoder(sinter.Decoder):
         self.osd_method = osd_method
         self.osd_order = osd_order
         self.trace_filename = trace_filename
+        self.bp_converge = bp_converge
 
     def decode_via_files(
         self,
@@ -116,6 +121,7 @@ class SinterBpOsdDecoder(sinter.Decoder):
             serial_schedule_order=self.serial_schedule_order,
             osd_method=self.osd_method,
             osd_order=self.osd_order,
+            bp_converge=self.bp_converge,
         )
         prior_log_prob_ratios = np.log(
             (1 - self.matrices.priors) / self.matrices.priors
